@@ -1,71 +1,192 @@
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.Statement;
-import java.sql.SQLException;
-import javax.swing.JOptionPane;
+import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
 
 public class KoneksiDB {
-    private static Connection mysqlconfig;
-    
-    // Nama Database
-    private static final String DB_NAME = "catchthetask_db";
-    private static final String DB_USER = "root"; 
-    private static final String DB_PASS = "";     
 
-    public static Connection configDB() throws SQLException {
-        try {
-            if (mysqlconfig == null || mysqlconfig.isClosed()) {
-                String url = "jdbc:mysql://localhost:3306/" + DB_NAME;
-                DriverManager.registerDriver(new com.mysql.cj.jdbc.Driver());
-                mysqlconfig = DriverManager.getConnection(url, DB_USER, DB_PASS);
-            }
-        } catch (Exception e) {
-            System.err.println("Koneksi gagal: " + e.getMessage());
-        }
-        return mysqlconfig;
+    private static final String DB_NAME = "catchthetask_db";
+    private static final String DB_URL  = "jdbc:mysql://localhost:3306/" + DB_NAME +
+            "?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC";
+
+    private static final String USERNAME = "root";
+    private static final String PASSWORD = "";
+
+    private static Connection connection;
+
+    private static int loggedInUserId = -1;
+
+    public static void setLoggedInUserId(int id) {
+        loggedInUserId = id;
     }
 
-    public static void prepareDatabase() {
-        Connection conn = null;
-        Statement stmt = null;
+    public static int getLoggedInUserId() {
+        return loggedInUserId;
+    }
+
+    public static void initialize() {
+
         try {
-            String rawUrl = "jdbc:mysql://localhost:3306/";
-            conn = DriverManager.getConnection(rawUrl, DB_USER, DB_PASS);
-            stmt = conn.createStatement();
+            Class.forName("com.mysql.cj.jdbc.Driver");
+        } catch (Exception e) {
+            System.out.println("[DRIVER ERROR] " + e.getMessage());
+        }
 
-            // 1. Buat DB
-            String sqlCreateDB = "CREATE DATABASE IF NOT EXISTS " + DB_NAME;
-            stmt.executeUpdate(sqlCreateDB);
-            
-            stmt.close(); conn.close();
-            
-            // 2. Konek ke DB Baru
-            conn = DriverManager.getConnection(rawUrl + DB_NAME, DB_USER, DB_PASS);
-            stmt = conn.createStatement();
+        // Create database if not exists
+        try (Connection conn = DriverManager.getConnection(
+                "jdbc:mysql://localhost:3306/?useSSL=false", USERNAME, PASSWORD)) {
 
-            // 3. Buat Tabel (UPDATE: Tambah BINARY agar Case Sensitive di Database-level)
-            String sqlCreateTable = "CREATE TABLE IF NOT EXISTS users (" +
-                    "id INT AUTO_INCREMENT PRIMARY KEY, " +
-                    "username VARCHAR(50) NOT NULL UNIQUE, " + // Username biasanya case-insensitive untuk register
-                    "password VARCHAR(50) BINARY NOT NULL, " + // Password WAJIB case-sensitive
-                    "score INT DEFAULT 0" +
-                    ")";
-            stmt.executeUpdate(sqlCreateTable);
-            System.out.println("Database & Table checked successfully.");
+            conn.createStatement().executeUpdate(
+                    "CREATE DATABASE IF NOT EXISTS " + DB_NAME);
 
-            // 4. Data Dummy
-            var rs = stmt.executeQuery("SELECT COUNT(*) FROM users");
-            if (rs.next() && rs.getInt(1) == 0) {
-                stmt.executeUpdate("INSERT INTO users (username, password, score) VALUES " +
-                        "('Admin', 'admin123', 1000), " +
-                        "('Player1', '123', 500)");
+        } catch (Exception e) {
+            System.out.println("[CREATE DB ERROR] " + e.getMessage());
+        }
+
+        // Create tables
+        try (Connection conn = getConnection()) {
+
+            conn.createStatement().executeUpdate("""
+                CREATE TABLE IF NOT EXISTS user (
+                    user_id INT AUTO_INCREMENT PRIMARY KEY,
+                    username VARCHAR(50) UNIQUE NOT NULL,
+                    password VARCHAR(50) BINARY NOT NULL
+                )
+            """);
+
+            conn.createStatement().executeUpdate("""
+                CREATE TABLE IF NOT EXISTS score (
+                    score_id INT AUTO_INCREMENT PRIMARY KEY,
+                    user_id INT NOT NULL,
+                    score INT NOT NULL,
+                    time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES user(user_id)
+                )
+            """);
+
+        } catch (Exception e) {
+            System.out.println("[TABLE ERROR] " + e.getMessage());
+        }
+    }
+
+    public static Connection getConnection() {
+        try {
+            if (connection == null || connection.isClosed()) {
+                connection = DriverManager.getConnection(DB_URL, USERNAME, PASSWORD);
+            }
+        } catch (Exception e) {
+            System.out.println("[CONNECTION ERROR] " + e.getMessage());
+        }
+        return connection;
+    }
+
+    public static boolean registerUser(String username, String pass) {
+        try (Connection conn = getConnection()) {
+
+            PreparedStatement ps = conn.prepareStatement(
+                    "INSERT INTO user(username, password) VALUES(?, ?)");
+            ps.setString(1, username);
+            ps.setString(2, pass);
+            ps.executeUpdate();
+
+            return true;
+
+        } catch (Exception e) {
+            System.out.println("[REGISTER ERROR] " + e.getMessage());
+            return false;
+        }
+    }
+
+    public static int loginUser(String username, String pass) {
+        try (Connection conn = getConnection()) {
+
+            PreparedStatement ps = conn.prepareStatement(
+                    "SELECT user_id FROM user WHERE BINARY username=? AND BINARY password=?");
+
+            ps.setString(1, username);
+            ps.setString(2, pass);
+
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) return rs.getInt("user_id");
+
+        } catch (Exception e) {
+            System.out.println("[LOGIN ERROR] " + e.getMessage());
+        }
+
+        return -1;
+    }
+
+    public static boolean insertScore(int userId, int score) {
+        try (Connection conn = getConnection()) {
+
+            PreparedStatement ps = conn.prepareStatement(
+                    "INSERT INTO score(user_id, score) VALUES(?, ?)");
+
+            ps.setInt(1, userId);
+            ps.setInt(2, score);
+            ps.executeUpdate();
+
+            return true;
+
+        } catch (Exception e) {
+            System.out.println("[INSERT SCORE ERROR] " + e.getMessage());
+            return false;
+        }
+    }
+
+    public static List<Object[]> getLeaderboard() {
+
+        List<Object[]> result = new ArrayList<>();
+
+        try (Connection conn = getConnection()) {
+
+            ResultSet rs = conn.createStatement().executeQuery("""
+                SELECT username, score, time
+                FROM score JOIN user ON score.user_id = user.user_id
+                ORDER BY score DESC, time ASC
+                LIMIT 10
+            """);
+
+            while (rs.next()) {
+                result.add(new Object[]{
+                        rs.getString("username"),
+                        rs.getInt("score"),
+                        rs.getTimestamp("time")
+                });
             }
 
         } catch (Exception e) {
-            JOptionPane.showMessageDialog(null, "Gagal Menyiapkan Database: " + e.getMessage());
-            System.exit(0);
-        } finally {
-            try { if (stmt != null) stmt.close(); if (conn != null) conn.close(); } catch (Exception e) {}
+            System.out.println("[LEADERBOARD ERROR] " + e.getMessage());
         }
+
+        return result;
+    }
+
+    public static List<Object[]> getScoresByUser(int userId) {
+
+        List<Object[]> list = new ArrayList<>();
+
+        try (Connection conn = getConnection()) {
+
+            PreparedStatement ps = conn.prepareStatement("""
+                SELECT score, time FROM score
+                WHERE user_id = ?
+                ORDER BY time DESC
+            """);
+
+            ps.setInt(1, userId);
+            ResultSet rs = ps.executeQuery();
+
+            while (rs.next()) {
+                list.add(new Object[]{
+                        rs.getInt("score"),
+                        rs.getTimestamp("time")
+                });
+            }
+
+        } catch (Exception e) {
+            System.out.println("[USER SCORE ERROR] " + e.getMessage());
+        }
+
+        return list;
     }
 }

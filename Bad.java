@@ -1,21 +1,13 @@
 import java.awt.Image;
 
 public class Bad extends Task {
-    private boolean Boom;
 
-    public Bad(int x, int y, int width, int height, int speed, int poin, Image img, boolean boom) {
-        super(x, y, width, height, speed, poin, img);
-        this.Boom = boom;
-    }
-
-    public void DoCatchBad() {
+    public Bad(int x, int y, int w, int h, int speed, int poin, Image img) {
+        super(x, y, w, h, speed, poin, img);
     }
 
     @Override
-    public void DoCatch() {
-    }
-
-    public boolean getBoom() {
-        return Boom;
+    public void update() {
+        y += speed;
     }
 }
