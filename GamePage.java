@@ -475,7 +475,8 @@ public class GamePage extends JPanel implements KeyListener {
             g2.fillRect(0, 0, getWidth(), getHeight());
         }
 
-        for (Task t : tasks) {
+        ArrayList<Task> renderList = new ArrayList<>(tasks);
+        for (Task t : renderList) {
             t.Draw(g2);
         }
 

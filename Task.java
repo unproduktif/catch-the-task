@@ -1,6 +1,6 @@
 import java.awt.*;
 
-public abstract class Task {
+public abstract class Task implements Movement{
 
     protected int x, y, w, h;
     protected int speed;
@@ -29,7 +29,7 @@ public abstract class Task {
         pixelEffect();
     }
 
-    protected void movement() {}
+    protected abstract void movement();
     protected void pixelEffect() {}
 
     public void onCatch() {}
