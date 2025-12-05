@@ -7,12 +7,9 @@ public class KoneksiDB {
     private static final String DB_NAME = "catchthetask_db";
     private static final String DB_URL  = "jdbc:mysql://localhost:3306/" + DB_NAME +
             "?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC";
-
     private static final String USERNAME = "root";
     private static final String PASSWORD = "";
-
     private static Connection connection;
-
     private static int loggedInUserId = -1;
 
     public static void setLoggedInUserId(int id) {
@@ -23,15 +20,36 @@ public class KoneksiDB {
         return loggedInUserId;
     }
 
-    public static void initialize() {
+    public static String getLoggedInUsername() {
+        if (loggedInUserId == -1) return null;
 
+        try (Connection conn = getConnection()) {
+
+            PreparedStatement ps = conn.prepareStatement(
+                    "SELECT username FROM user WHERE user_id = ?"
+            );
+
+            ps.setInt(1, loggedInUserId);
+            ResultSet rs = ps.executeQuery();
+
+            if (rs.next()) {
+                return rs.getString("username");
+            }
+
+        } catch (Exception e) {
+            System.out.println("[GET USERNAME ERROR] " + e.getMessage());
+        }
+
+        return null;
+    }
+
+    public static void initialize() {
         try {
             Class.forName("com.mysql.cj.jdbc.Driver");
         } catch (Exception e) {
             System.out.println("[DRIVER ERROR] " + e.getMessage());
         }
 
-        // Create database if not exists
         try (Connection conn = DriverManager.getConnection(
                 "jdbc:mysql://localhost:3306/?useSSL=false", USERNAME, PASSWORD)) {
 
@@ -42,7 +60,6 @@ public class KoneksiDB {
             System.out.println("[CREATE DB ERROR] " + e.getMessage());
         }
 
-        // Create tables
         try (Connection conn = getConnection()) {
 
             conn.createStatement().executeUpdate("""
@@ -133,6 +150,26 @@ public class KoneksiDB {
         }
     }
 
+    public static int getHighestScore(int userId) {
+        int maxScore = 0;
+        String sql = "SELECT MAX(score) AS maxscore FROM score WHERE user_id = ?";
+
+        try (Connection conn = getConnection();
+            PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setInt(1, userId);
+            ResultSet rs = ps.executeQuery();
+
+            if (rs.next()) {
+                maxScore = rs.getInt("maxscore");
+            }
+
+        } catch (Exception e) {
+            System.out.println("ERROR load highest score: " + e.getMessage());
+        }
+        return maxScore;
+    }
+
     public static List<Object[]> getLeaderboard() {
 
         List<Object[]> result = new ArrayList<>();
@@ -162,27 +199,21 @@ public class KoneksiDB {
     }
 
     public static List<Object[]> getScoresByUser(int userId) {
-
         List<Object[]> list = new ArrayList<>();
-
         try (Connection conn = getConnection()) {
-
             PreparedStatement ps = conn.prepareStatement("""
                 SELECT score, time FROM score
                 WHERE user_id = ?
                 ORDER BY time DESC
             """);
-
             ps.setInt(1, userId);
             ResultSet rs = ps.executeQuery();
-
             while (rs.next()) {
                 list.add(new Object[]{
                         rs.getInt("score"),
                         rs.getTimestamp("time")
                 });
             }
-
         } catch (Exception e) {
             System.out.println("[USER SCORE ERROR] " + e.getMessage());
         }

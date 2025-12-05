@@ -76,9 +76,6 @@ public class LoginPage extends JFrame {
         return wrap(card);
     }
 
-    // ==================================================
-    // LOGIN FIX — Menggunakan loginUser()
-    // ==================================================
     private void login(JTextField userField, JPasswordField passField) {
 
         String username = userField.getText();
@@ -106,9 +103,6 @@ public class LoginPage extends JFrame {
         }
     }
 
-    // ==================================================
-    // REGISTER FIX — Menggunakan registerUser()
-    // ==================================================
     private void register(JTextField userField, JPasswordField passField) {
 
         String username = userField.getText();
@@ -129,10 +123,6 @@ public class LoginPage extends JFrame {
                     JOptionPane.ERROR_MESSAGE);
         }
     }
-
-    // ==================================================
-    // Utility UI
-    // ==================================================
 
     private JPanel createPixelCard() {
         JPanel card = new JPanel();

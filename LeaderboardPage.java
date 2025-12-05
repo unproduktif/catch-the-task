@@ -5,9 +5,6 @@ import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.JTableHeader;
 import java.awt.*;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
@@ -16,9 +13,8 @@ public class LeaderboardPage extends JPanel {
 
     private JTable table;
     private DefaultTableModel model;
-    private Runnable onBackAction;
+    public Runnable onBackAction;
 
-    // Tema final tanpa biru & tanpa abu-abu
     private final Color PANEL_BG = new Color(0, 0, 0);
     private final Color BORDER = new Color(50, 0, 64);
     private final Color HEADER_BG = new Color(150, 0, 200);
@@ -74,9 +70,6 @@ public class LeaderboardPage extends JPanel {
         add(panel);
     }
 
-    // ===========================================================
-    // LOAD TOP 10
-    // ===========================================================
     public void loadData() {
         model.setRowCount(0);
 
@@ -103,9 +96,6 @@ public class LeaderboardPage extends JPanel {
         }
     }
 
-    // ===========================================================
-    // TABLE STYLE
-    // ===========================================================
     private void styleTable() {
 
         table.setFont(Theme.PIXEL(16));
@@ -114,7 +104,6 @@ public class LeaderboardPage extends JPanel {
         table.setShowGrid(false);
         table.setFocusable(false);
 
-        // LOCK HEADER (no drag, no resize)
         JTableHeader header = table.getTableHeader();
         header.setFont(Theme.PIXEL(18));
         header.setBackground(HEADER_BG);
@@ -124,7 +113,6 @@ public class LeaderboardPage extends JPanel {
 
         table.setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS);
 
-        // Row renderer (tanpa highlight juara / user)
         DefaultTableCellRenderer cell = new DefaultTableCellRenderer() {
 
             @Override
@@ -138,8 +126,6 @@ public class LeaderboardPage extends JPanel {
 
                 c.setFont(Theme.PIXEL(16));
                 c.setForeground(TEXT_COLOR);
-
-                // semua baris sama, hanya alternating ungu 2 tone
                 c.setBackground(row % 2 == 0 ? ROW_1 : ROW_2);
 
                 if (col == 0 || col >= 2)
@@ -155,9 +141,6 @@ public class LeaderboardPage extends JPanel {
             table.getColumnModel().getColumn(i).setCellRenderer(cell);
     }
 
-    // ===========================================================
-    // BUTTON
-    // ===========================================================
     private JButton createButton(String text) {
         JButton b = new JButton(text);
         b.setFont(Theme.PIXEL(22));
